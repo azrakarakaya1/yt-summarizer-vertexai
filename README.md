@@ -1,8 +1,18 @@
-# YT Summarizer
+# YouTube Summarizer
 
 An AI-powered web application that generates instant summaries of YouTube videos. Built with Flask and Google Vertex AI, deployed on Cloud Run.
 
 > Developed as part of **Google with AI — Session 1**.
+
+---
+
+## Live Demo
+
+> Deployed on **Google Cloud Run**
+> 🔗 [https://yt-summarizer-vertexai-738398904261.us-central1.run.app](https://yt-summarizer-vertexai-738398904261.us-central1.run.app)
+
+![Screenshot 1](images/image1.png)
+![Screenshot 2](images/image2.png)
 
 ---
 
