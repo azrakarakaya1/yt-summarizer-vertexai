@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>YT Summarizer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red: #ff0000;
+      --red-dim: rgba(255,0,0,0.12);
+      --surface: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.1);
+      --text: #f0f0f0;
+      --muted: rgba(255,255,255,0.45);
+      --radius: 16px;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      background: #0a0a0f;
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 20px 80px;
+      overflow-x: hidden;
+    }
+
+    /* Ambient glow */
+    body::before {
+      content: '';
+      position: fixed;
+      top: -200px; left: 50%;
+      transform: translateX(-50%);
+      width: 800px; height: 500px;
+      background: radial-gradient(ellipse, rgba(255,0,0,0.18) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+    body::after {
+      content: '';
+      position: fixed;
+      bottom: -100px; right: -100px;
+      width: 500px; height: 500px;
+      background: radial-gradient(ellipse, rgba(100,60,255,0.12) 0%, transparent 70%);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── Header ── */
+    header {
+      position: relative; z-index: 1;
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .logo-wrap {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+
+    .yt-icon {
+      width: 44px; height: 44px;
+      background: var(--red);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 0 24px rgba(255,0,0,0.5);
+      flex-shrink: 0;
+    }
+    .yt-icon svg { width: 22px; height: 22px; fill: white; }
+
+    header h1 {
+      font-size: clamp(1.5rem, 4vw, 2.2rem);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #fff 30%, rgba(255,255,255,0.55));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    header p {
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 300;
+      letter-spacing: 0.01em;
+    }
+
+    /* ── Card ── */
+    .card {
+      position: relative; z-index: 1;
+      width: 100%; max-width: 620px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 36px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    }
+
+    /* ── Form Fields ── */
+    .field { margin-bottom: 20px; }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    input[type="text"],
+    textarea,
+    select {
+      width: 100%;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.93rem;
+      padding: 12px 16px;
+      transition: border-color 0.2s, box-shadow 0.2s;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="text"]:focus,
+    textarea:focus,
+    select:focus {
+      border-color: rgba(255,0,0,0.5);
+      box-shadow: 0 0 0 3px rgba(255,0,0,0.1);
+    }
+
+    input[type="text"]::placeholder,
+    textarea::placeholder { color: rgba(255,255,255,0.25); }
+
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+      line-height: 1.6;
+    }
+
+    /* Two-column row */
+    .row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    /* Select arrow */
+    .select-wrap {
+      position: relative;
+    }
+    .select-wrap::after {
+      content: '';
+      position: absolute;
+      right: 14px; top: 50%;
+      transform: translateY(-50%);
+      width: 0; height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 5px solid var(--muted);
+      pointer-events: none;
+    }
+
+    select option { background: #1a1a2e; color: #f0f0f0; }
+
+    /* ── Submit button ── */
+    .btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 14px 24px;
+      background: var(--red);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-family: 'Inter', sans-serif;
+      font-size: 0.97rem;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+      box-shadow: 0 4px 20px rgba(255,0,0,0.35);
+    }
+    .btn:hover {
+      background: #e60000;
+      box-shadow: 0 6px 28px rgba(255,0,0,0.5);
+      transform: translateY(-1px);
+    }
+    .btn:active { transform: translateY(0); }
+
+    .btn-inner {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    .btn-inner svg { width: 18px; height: 18px; fill: white; }
+
+    /* ── Divider ── */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 28px 0;
+    }
+
+    /* ── Summary section ── */
+    #summary-section {
+      display: none;
+      position: relative; z-index: 1;
+      width: 100%; max-width: 620px;
+      margin-top: 28px;
+    }
+
+    #summary-section.visible { display: block; }
+
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      overflow: hidden;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+    }
+
+    .summary-header {
+      padding: 20px 28px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+
+    .summary-header-left {
+      display: flex; align-items: center; gap: 10px;
+    }
+
+    .summary-dot {
+      width: 8px; height: 8px;
+      background: var(--red);
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(255,0,0,0.7);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .summary-header span {
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .copy-btn {
+      background: rgba(255,255,255,0.07);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: 'Inter', sans-serif;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 6px 12px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.12); color: white; }
+
+    .summary-body {
+      padding: 28px;
+      font-size: 0.95rem;
+      line-height: 1.8;
+      color: rgba(255,255,255,0.85);
+      word-break: break-word;
+    }
+
+    .summary-body h1,
+    .summary-body h2,
+    .summary-body h3 {
+      color: #fff;
+      font-weight: 600;
+      margin: 20px 0 8px;
+      letter-spacing: -0.02em;
+    }
+    .summary-body h1 { font-size: 1.2rem; }
+    .summary-body h2 { font-size: 1.05rem; }
+    .summary-body h3 { font-size: 0.97rem; }
+
+    .summary-body p { margin-bottom: 12px; }
+
+    .summary-body ul,
+    .summary-body ol {
+      padding-left: 20px;
+      margin-bottom: 12px;
+    }
+    .summary-body li { margin-bottom: 4px; }
+
+    .summary-body strong { color: #fff; font-weight: 600; }
+
+    .summary-body code {
+      background: rgba(255,255,255,0.08);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 0.88em;
+      font-family: monospace;
+    }
+
+    /* ── Loading state ── */
+    #loading {
+      display: none;
+      position: relative; z-index: 1;
+      width: 100%; max-width: 620px;
+      margin-top: 28px;
+      padding: 40px;
+      text-align: center;
+    }
+    #loading.visible { display: block; }
+
+    .spinner {
+      width: 40px; height: 40px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--red);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #loading p { color: var(--muted); font-size: 0.9rem; }
+
+    /* ── Error ── */
+    .error-card {
+      background: rgba(255,50,50,0.08);
+      border: 1px solid rgba(255,50,50,0.25);
+      border-radius: 12px;
+      padding: 16px 20px;
+      color: #ff8080;
+      font-size: 0.9rem;
+      margin-top: 16px;
+      display: none;
+    }
+    .error-card.visible { display: block; }
+
+    /* ── Powered by ── */
+    .powered {
+      position: relative; z-index: 1;
+      margin-top: 40px;
+      font-size: 0.78rem;
+      color: rgba(255,255,255,0.2);
+      text-align: center;
+      letter-spacing: 0.04em;
+    }
+    .powered span { color: rgba(255,255,255,0.35); font-weight: 500; }
+
+    @media (max-width: 520px) {
+      .card { padding: 24px 20px; }
+      .row-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo-wrap">
+      <div class="yt-icon">
+        <svg viewBox="0 0 24 24"><path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/></svg>
+      </div>
+      <h1>YT Summarizer</h1>
+    </div>
+    <p>Paste any YouTube link — get an AI-powered summary in seconds</p>
+  </header>
+
+  <div class="card">
+    <form id="summarize-form">
+      <div class="field">
+        <label>YouTube URL</label>
+        <input type="text" name="youtube_link" id="youtube_link"
+               placeholder="https://www.youtube.com/watch?v=..." required />
+      </div>
+
+      <div class="row-2">
+        <div class="field">
+          <label>Model</label>
+          <input type="text" value="Gemini 2.5 Flash" disabled style="cursor:default;opacity:0.6;" />
+          <input type="hidden" name="model" value="gemini-2.5-flash" />
+        </div>
+
+        <div class="field">
+          <label>Summary Language</label>
+          <div class="select-wrap">
+            <select name="language" id="language">
+              <option value="tr">🇹🇷 Türkçe</option>
+              <option value="en">🇺🇸 English</option>
+              <option value="es">🇪🇸 Español</option>
+              <option value="fr">🇫🇷 Français</option>
+              <option value="de">🇩🇪 Deutsch</option>
+              <option value="it">🇮🇹 Italiano</option>
+              <option value="pt">🇧🇷 Português</option>
+              <option value="ar">🇸🇦 العربية</option>
+              <option value="ja">🇯🇵 日本語</option>
+              <option value="ko">🇰🇷 한국어</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Additional Instructions <span style="text-transform:none;font-weight:400;color:rgba(255,255,255,0.2);">— optional</span></label>
+        <textarea name="additional_prompt" id="additional_prompt"
+                  placeholder="e.g. Focus on key takeaways. Explain like I'm five. List action items..."></textarea>
+      </div>
+
+      <div id="error-msg" class="error-card"></div>
+
+      <button type="submit" class="btn">
+        <span class="btn-inner">
+          <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+          Generate Summary
+        </span>
+      </button>
+    </form>
+  </div>
+
+  <div id="loading">
+    <div class="spinner"></div>
+    <p>Analyzing video with Gemini...</p>
+  </div>
+
+  <div id="summary-section">
+    <div class="summary-card">
+      <div class="summary-header">
+        <div class="summary-header-left">
+          <div class="summary-dot"></div>
+          <span>Summary</span>
+        </div>
+        <button class="copy-btn" id="copy-btn">Copy</button>
+      </div>
+      <div class="summary-body" id="summary-text"></div>
+    </div>
+  </div>
+
+  <p class="powered">Powered by <span>Vertex AI</span> &amp; <span>Gemini</span></p>
+
+  <script>
+    const form = document.getElementById('summarize-form');
+    const loading = document.getElementById('loading');
+    const summarySection = document.getElementById('summary-section');
+    const summaryText = document.getElementById('summary-text');
+    const errorMsg = document.getElementById('error-msg');
+    const copyBtn = document.getElementById('copy-btn');
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      // Reset state
+      summarySection.classList.remove('visible');
+      errorMsg.classList.remove('visible');
+      summaryText.textContent = '';
+      loading.classList.add('visible');
+
+      const data = new FormData(form);
+
+      try {
+        const res = await fetch('/summarize', { method: 'POST', body: data });
+        if (!res.ok) throw new Error(`Server error: ${res.status}`);
+        const text = await res.text();
+        summaryText.innerHTML = marked.parse(text);
+        summarySection.classList.add('visible');
+        summarySection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      } catch (err) {
+        errorMsg.textContent = err.message || 'Something went wrong. Please try again.';
+        errorMsg.classList.add('visible');
+      } finally {
+        loading.classList.remove('visible');
+      }
+    });
+
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(summaryText.innerText).then(() => {
+        copyBtn.textContent = 'Copied!';
+        setTimeout(() => (copyBtn.textContent = 'Copy'), 2000);
+      });
+    });
+  </script>
+
+</body>
+</html>
