@@ -2,7 +2,7 @@
 
 An AI-powered web application that generates instant summaries of YouTube videos. Built with Flask and Google Vertex AI, deployed on Cloud Run.
 
-> Developed as part of **Google with AI — Session 1**.
+> Developed as part of **Google Build with AI Certification Program** — Session 1: Build a Gemini-Powered YouTube Summarizer.
 
 ---
 
